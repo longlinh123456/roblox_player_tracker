@@ -90,7 +90,7 @@ pub async fn add(
     guild_only,
     ephemeral
 )]
-/// Remove targets
+/// Remove games
 pub async fn remove(
     ctx: Context<'_>,
     #[description = "List of games to remove (comma seperated ids)"]
@@ -114,7 +114,7 @@ pub async fn remove(
     guild_only,
     ephemeral
 )]
-/// Remove all targets
+/// Remove all games
 pub async fn clear(ctx: Context<'_>) -> CommandResult {
     let res = get_channel(ctx.channel_id()).await?.clear_games().await?;
     ctx.send(success_message(format!(
