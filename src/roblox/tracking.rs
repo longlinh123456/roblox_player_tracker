@@ -85,10 +85,10 @@ pub fn target_states() -> &'static DashMap<Id, TargetState, RandomState> {
     TARGET_STATES.get_or_init(DashMap::default)
 }
 
-struct PublicServerWithGame {
+struct ServerPlayer {
     pub game: Id,
-    pub id: Uuid,
-    pub player_tokens: Vec<String>,
+    pub server: Uuid,
+    pub token: String,
 }
 
 fn target_states_cleanup(
@@ -146,38 +146,39 @@ pub async fn tracking_loop() {
             get_servers(game)
                 .take_while(|res| future::ready(res.is_ok()))
                 .map(move |res| {
-                    stream::iter(res.unwrap().data.into_iter().map(move |server| {
-                        PublicServerWithGame {
-                            game,
-                            id: server.id,
-                            player_tokens: server.player_tokens,
-                        }
+                    stream::iter(res.unwrap().data.into_iter().flat_map(move |server| {
+                        server
+                            .player_tokens
+                            .into_iter()
+                            .map(move |token| ServerPlayer {
+                                server: server.id,
+                                game,
+                                token,
+                            })
                     }))
                 })
                 .flatten_unordered(None)
         }))
         .flatten_unordered(MAX_TRACKING_TASKS)
-        .for_each_concurrent(None, |server| {
+        .for_each_concurrent(None, |server_player| {
             let target_thumbnails = target_thumbnails.clone();
             let found_targets = found_targets.clone();
             async move {
-                for token in server.player_tokens {
-                    if let Some(target_thumbnails) = target_thumbnails.get(&server.game) {
-                        let thumbnail = (|| get_thumbnail_from_token(&token))
-                            .retry(thumbnail_retry_strategy())
-                            .when(|err| thumbnail_error_retryable(err))
-                            .await;
-                        if let Ok(thumbnail) = thumbnail {
-                            if let Some(target) = target_thumbnails.get(&thumbnail) {
-                                target_states().insert(
-                                    *target,
-                                    TargetState {
-                                        server: server.id,
-                                        game: server.game,
-                                    },
-                                );
-                                found_targets.insert(*target);
-                            }
+                if let Some(target_thumbnails) = target_thumbnails.get(&server_player.game) {
+                    let thumbnail = (|| get_thumbnail_from_token(&server_player.token))
+                        .retry(thumbnail_retry_strategy())
+                        .when(|err| thumbnail_error_retryable(err))
+                        .await;
+                    if let Ok(thumbnail) = thumbnail {
+                        if let Some(target) = target_thumbnails.get(&thumbnail) {
+                            target_states().insert(
+                                *target,
+                                TargetState {
+                                    server: server_player.server,
+                                    game: server_player.game,
+                                },
+                            );
+                            found_targets.insert(*target);
                         }
                     }
                 }

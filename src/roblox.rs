@@ -1,5 +1,6 @@
 use crate::constants::{
-    MAX_BATCHING_TIME, MAX_RETRY_ATTEMPTS, NAME_TIMEOUT, RETRY_DELAY, USER_AGENT,
+    MAX_RETRY_ATTEMPTS, NAME_BATCHING_TIME, NAME_TIMEOUT, RETRY_DELAY, THUMBNAIL_BATCHING_TIME,
+    USER_AGENT,
 };
 use ahash::{HashMap, RandomState};
 use backon::{BackoffBuilder, ConstantBuilder};
@@ -211,14 +212,14 @@ fn batcher() -> &'static Batcher {
             Limits::default()
                 .max_batch_size(200)
                 .max_key_concurrency(usize::MAX),
-            BatchingPolicy::Duration(MAX_BATCHING_TIME, OnFull::Process),
+            BatchingPolicy::Duration(NAME_BATCHING_TIME, OnFull::Process),
         ),
         thumbnail: InnerBatcher::new(
             ThumbnailProcessor,
             Limits::default()
                 .max_batch_size(100)
                 .max_key_concurrency(usize::MAX),
-            BatchingPolicy::Duration(MAX_BATCHING_TIME, OnFull::Process),
+            BatchingPolicy::Duration(THUMBNAIL_BATCHING_TIME, OnFull::Process),
         ),
     })
 }
