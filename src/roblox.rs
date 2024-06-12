@@ -102,8 +102,8 @@ impl Processor<(), ThumbnailRequest, BatchThumbnailResult, Arc<apis::Error<JsonE
         _key: (),
         inputs: impl Iterator<Item = ThumbnailRequest> + Send,
     ) -> Result<Vec<BatchThumbnailResult>, Arc<apis::Error<JsonError>>> {
-        let tokens = inputs.collect::<Vec<ThumbnailRequest>>();
-        let requests = tokens
+        let ids_and_tokens = inputs.collect::<Vec<ThumbnailRequest>>();
+        let requests = ids_and_tokens
             .iter()
             .enumerate()
             .map(|(index, request)| BatchRequest {
@@ -125,8 +125,8 @@ impl Processor<(), ThumbnailRequest, BatchThumbnailResult, Arc<apis::Error<JsonE
                 circular: false,
             });
         ratelimiter().thumbnails.acquire_one().await;
-        let mut res = Vec::with_capacity(tokens.len());
-        res.resize_with(tokens.len(), || Ok(BatchThumbnail::default()));
+        let mut res = Vec::with_capacity(ids_and_tokens.len());
+        res.resize_with(ids_and_tokens.len(), || Ok(BatchThumbnail::default()));
         client()
             .get_batch_thumbnails(requests)
             .await?
