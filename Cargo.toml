@@ -1,0 +1,45 @@
+[package]
+name = "roblox_player_tracker"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+members = ["migration", "entities"]
+
+[dependencies]
+sea-orm = { version = "0", features = [
+	"sqlx-sqlite",
+	"runtime-tokio-native-tls",
+	"macros",
+] }
+sea-query = { version = "0", features = ["thread-safe", "backend-sqlite"] }
+entities = { path = "./entities" }
+migration = { path = "./migration" }
+poise = "0"
+tokio = { version = "1", features = [
+	"rt",
+	"rt-multi-thread",
+	"time",
+	"macros",
+	"parking_lot",
+] }
+roblox_api = { git = "https://github.com/longlinh123456/roblox_api.git" }
+anyhow = { version = "1", features = ["backtrace"] }
+tracing = "0"
+tracing-subscriber = { version = "0", features = ["fmt"] }
+moka = { version = "0", features = ["future"] }
+ahash = "0"
+dashmap = { version = "5", features = ["inline"] }
+delegate = "0"
+thiserror = "1"
+batch-aint-one = "0"
+arc-swap = "1"
+leaky-bucket = "1"
+backon = "0"
+simple_moving_average = "1"
+
+[profile.release]
+lto = true
