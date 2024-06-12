@@ -17,7 +17,7 @@ mod roblox;
 use std::env;
 
 use anyhow::{Context, Result};
-use commands::{channels, games, help, register, stats, target, tracker};
+use commands::{channels, games, help, stats, target, tracker};
 use poise::{
     builtins,
     serenity_prelude::{ClientBuilder, Command, CreateAllowedMentions, GatewayIntents},
@@ -36,7 +36,6 @@ async fn main() -> Result<()> {
             games::game(),
             target::target(),
             tracker::tracker(),
-            register::register(),
             help::help(),
             stats::stats(),
         ],

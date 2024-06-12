@@ -78,6 +78,7 @@ pub fn get_stats() -> &'static Stats {
     STATS.get_or_init(Stats::new)
 }
 
+/// Get global stats for the tracker
 #[command(slash_command, ephemeral)]
 pub async fn stats(ctx: Context<'_>) -> CommandResult {
     ctx.send(CreateReply::default().embed(

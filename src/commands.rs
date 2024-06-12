@@ -6,7 +6,6 @@ use thiserror::Error;
 pub mod channels;
 pub mod games;
 pub mod help;
-pub mod register;
 pub mod stats;
 pub mod target;
 pub mod tracker;
