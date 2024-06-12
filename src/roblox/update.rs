@@ -8,8 +8,8 @@ use poise::serenity_prelude::{
         stream::{self, FuturesUnordered},
         StreamExt,
     },
-    Cache, ChannelId, CreateMessage, EditMessage, Error as SerenityError, Http, HttpError, Mention,
-    MessageId, RoleId,
+    Cache, ChannelId, CreateMessage, EditMessage, Error as SerenityError, GuildId, Http, HttpError,
+    Mention, MessageId, RoleId,
 };
 use roblox_api::apis::Id;
 use tokio::time;
@@ -71,9 +71,13 @@ const fn should_send_message(err: &SerenityError) -> bool {
     }
     false
 }
-const fn should_delete_tracker(err: &SerenityError) -> bool {
+fn should_delete_tracker(guild_id: GuildId, cache: &Cache, err: &SerenityError) -> bool {
     if let SerenityError::Http(HttpError::UnsuccessfulRequest(err)) = err {
-        if err.error.code == 10003 {
+        if err.error.code == 10003
+            || (err.error.code == 50001
+                && cache.unavailable_guilds().get(&guild_id).is_none()
+                && cache.guild(guild_id).is_none())
+        {
             return true;
         }
     }
@@ -115,6 +119,7 @@ async fn send_output(
     edit_output: EditMessage,
     message_id: Option<MessageId>,
     channel_id: ChannelId,
+    guild_id: GuildId,
 ) {
     let mut should_send = false;
     let mut should_delete = false;
@@ -125,7 +130,7 @@ async fn send_output(
             .await;
         if let Err(err) = edit_res {
             should_send = should_send_message(&err);
-            should_delete = should_delete_tracker(&err);
+            should_delete = should_delete_tracker(guild_id, cache, &err);
         }
     }
     if should_delete {
@@ -178,6 +183,7 @@ pub async fn update_loop(cache: Arc<Cache>, http: Arc<Http>) {
                         let targets = (|| channel.get_targets()).retry(retry_strategy()).await;
                         let notified_role = channel.notified_role();
                         let message_id = channel.message();
+                        let guild_id = channel.guild();
                         if let Ok(games) = games {
                             if let Ok(targets) = targets {
                                 let mut channel_state =
@@ -221,6 +227,7 @@ pub async fn update_loop(cache: Arc<Cache>, http: Arc<Http>) {
                                     edit_output,
                                     message_id,
                                     channel_id,
+                                    guild_id,
                                 )
                                 .await;
                             }
