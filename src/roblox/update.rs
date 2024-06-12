@@ -1,5 +1,14 @@
-use std::{sync::Arc, time::Instant};
-
+use super::{
+    get_game_name, get_username, retry_strategy,
+    tracking::{target_states, TargetState},
+    InfiniteRetry,
+};
+use crate::{
+    commands::stats::get_stats,
+    constants::UPDATE_DELAY,
+    database::db,
+    message_utils::{render_lines_edit_message, render_lines_message},
+};
 use ahash::{HashMap, HashSet, RandomState};
 use backon::Retryable;
 use dashmap::{DashMap, DashSet};
@@ -12,20 +21,8 @@ use poise::serenity_prelude::{
     Mention, MessageId, RoleId,
 };
 use roblox_api::apis::Id;
+use std::{sync::Arc, time::Instant};
 use tokio::time;
-
-use crate::{
-    commands::stats::get_stats,
-    constants::UPDATE_DELAY,
-    database::db,
-    message_utils::{render_lines_edit_message, render_lines_message},
-};
-
-use super::{
-    get_game_name, get_username, retry_strategy,
-    tracking::{target_states, TargetState},
-    InfiniteRetry,
-};
 
 fn is_different_states(
     old_state: Option<&TargetState>,

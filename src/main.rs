@@ -14,8 +14,6 @@ mod error_handler;
 mod message_utils;
 mod roblox;
 
-use std::env;
-
 use anyhow::{Context, Result};
 use commands::{channels, games, help, stats, target, tracker};
 use poise::{
@@ -24,6 +22,7 @@ use poise::{
     Framework, FrameworkOptions,
 };
 use roblox::{tracking, update};
+use std::env;
 use tokio::task;
 use tracing::error;
 

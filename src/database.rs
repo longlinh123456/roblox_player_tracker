@@ -1,10 +1,15 @@
 #![allow(clippy::match_wildcard_for_single_variants)]
 #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 
+use crate::{
+    commands::CommandError,
+    constants::{CHANNEL_LIMIT, DATABASE_URL, GAME_LIMIT, TARGET_LIMIT},
+};
 use ahash::{HashMap, RandomState};
 use arc_swap::ArcSwapOption;
 use dashmap::DashSet;
 use delegate::delegate;
+use entities::{channel, game, prelude::*, target};
 use migration::{Migrator, MigratorTrait};
 use moka::future::Cache;
 use poise::serenity_prelude::{ChannelId, GuildChannel, GuildId, MessageId, RoleId};
@@ -19,12 +24,6 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::OnceCell;
 use tracing::info;
-
-use crate::{
-    commands::CommandError,
-    constants::{CHANNEL_LIMIT, DATABASE_URL, GAME_LIMIT, TARGET_LIMIT},
-};
-use entities::{channel, game, prelude::*, target};
 
 static DATABASE: OnceCell<Database> = OnceCell::const_new();
 

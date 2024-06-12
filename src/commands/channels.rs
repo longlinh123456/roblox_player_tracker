@@ -1,7 +1,6 @@
 use super::{CommandResult, Context};
-use poise::{command, serenity_prelude::Mention};
-
 use crate::{constants::CHANNEL_LIMIT, database::db, message_utils::render_lines_reply};
+use poise::{command, serenity_prelude::Mention};
 
 #[command(
     slash_command,

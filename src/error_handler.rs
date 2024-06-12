@@ -1,8 +1,7 @@
+use crate::{commands::CommandError, message_utils::failure_embed};
 use anyhow::Result;
 use poise::{CreateReply, FrameworkError};
 use tracing::{error, warn};
-
-use crate::{commands::CommandError, message_utils::failure_embed};
 
 #[allow(clippy::too_many_lines)]
 pub async fn handle<T: Send + Sync>(error: FrameworkError<'_, T, CommandError>) -> Result<()> {

@@ -1,6 +1,5 @@
-use std::{sync::OnceLock, time::Duration};
-
 use leaky_bucket::RateLimiter as InnerRateLimiter;
+use std::{sync::OnceLock, time::Duration};
 
 pub(super) struct RateLimiter {
     pub(super) thumbnails: InnerRateLimiter,

@@ -1,11 +1,9 @@
-use std::mem;
-
+use crate::constants::{self, DESCRIPTION_MAX_LENGTH};
 use poise::{
     serenity_prelude::{CreateEmbed, CreateMessage, EditMessage, EMBED_MAX_LENGTH},
     CreateReply,
 };
-
-use crate::constants::{self, DESCRIPTION_MAX_LENGTH};
+use std::mem;
 
 pub fn success_embed(content: impl Into<String>) -> CreateEmbed {
     CreateEmbed::new()

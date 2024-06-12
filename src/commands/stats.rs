@@ -1,18 +1,16 @@
-use std::{
-    sync::{Arc, Mutex, OnceLock},
-    time::Duration,
+use crate::{
+    commands::{CommandResult, Context},
+    database::db,
+    message_utils::info_embed,
 };
-
 use ahash::RandomState;
 use moka::future::Cache;
 use poise::{command, serenity_prelude::futures::TryFutureExt, CreateReply};
 use sea_orm::DbErr;
 use simple_moving_average::{NoSumSMA, SMA};
-
-use crate::{
-    commands::{CommandResult, Context},
-    database::db,
-    message_utils::info_embed,
+use std::{
+    sync::{Arc, Mutex, OnceLock},
+    time::Duration,
 };
 
 #[derive(Debug)]

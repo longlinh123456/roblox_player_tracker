@@ -1,10 +1,6 @@
-use std::{
-    convert::Infallible,
-    iter::{self, Repeat},
-    sync::{Arc, OnceLock},
-    time::Duration,
+use crate::constants::{
+    MAX_BATCHING_TIME, MAX_RETRY_ATTEMPTS, NAME_TIMEOUT, RETRY_DELAY, USER_AGENT,
 };
-
 use ahash::{HashMap, RandomState};
 use backon::{BackoffBuilder, ConstantBuilder};
 use batch_aint_one::{
@@ -27,12 +23,14 @@ use roblox_api::{
     },
     clients::{Client, ClientBuilder},
 };
+use std::{
+    convert::Infallible,
+    iter::{self, Repeat},
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 use thiserror::Error;
 use tokio::{sync::OnceCell, task, time};
-
-use crate::constants::{
-    MAX_BATCHING_TIME, MAX_RETRY_ATTEMPTS, NAME_TIMEOUT, RETRY_DELAY, USER_AGENT,
-};
 
 mod ratelimit;
 pub mod tracking;

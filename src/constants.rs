@@ -1,6 +1,5 @@
-use std::time::Duration;
-
 use poise::serenity_prelude::Colour;
+use std::time::Duration;
 
 pub const DATABASE_URL: &str = "sqlite:./tracker.sqlite?mode=rwc";
 pub const SUCCESS_COLOR: Colour = Colour::from_rgb(40, 167, 69);

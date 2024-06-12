@@ -1,5 +1,13 @@
-use std::sync::{Arc, OnceLock};
-
+use super::{
+    clear_thumbnail_cache, client, get_thumbnail_from_token, ratelimit::ratelimiter,
+    retry_strategy, thumbnail_retry_strategy, InfiniteRetry, ThumbnailError,
+};
+use crate::{
+    commands::stats::get_stats,
+    constants::{MAX_TRACKING_TASKS, MIN_TRACKING_DELAY},
+    database::db,
+    roblox::get_thumbnail_from_user_id,
+};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt, RandomState};
 use backon::Retryable;
 use batch_aint_one::BatchError;
@@ -16,19 +24,8 @@ use roblox_api::apis::{
     Error, Id, JsonError, Paginator, RequestLimit, SortOrder,
 };
 use sea_orm::prelude::Uuid;
+use std::sync::{Arc, OnceLock};
 use tokio::time::{self, Instant};
-
-use crate::{
-    commands::stats::get_stats,
-    constants::{MAX_TRACKING_TASKS, MIN_TRACKING_DELAY},
-    database::db,
-    roblox::get_thumbnail_from_user_id,
-};
-
-use super::{
-    clear_thumbnail_cache, client, get_thumbnail_from_token, ratelimit::ratelimiter,
-    retry_strategy, thumbnail_retry_strategy, InfiniteRetry, ThumbnailError,
-};
 
 fn get_servers(game_id: Id) -> Paginator<'static, PublicServer, JsonError> {
     apis::paginate(
