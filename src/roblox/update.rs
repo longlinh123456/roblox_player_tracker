@@ -11,7 +11,7 @@ use crate::{
 };
 use ahash::{HashMap, HashSet, RandomState};
 use backon::Retryable;
-use dashmap::{DashMap, DashSet};
+use dashmap::DashMap;
 use poise::serenity_prelude::{
     futures::{
         stream::{self, FuturesUnordered},
@@ -24,15 +24,8 @@ use roblox_api::apis::Id;
 use std::{sync::Arc, time::Instant};
 use tokio::time;
 
-fn is_different_states(
-    old_state: Option<&TargetState>,
-    current_state: Option<&TargetState>,
-    games: &DashSet<Id, RandomState>,
-) -> bool {
+fn is_ping_states(old_state: Option<&TargetState>, current_state: Option<&TargetState>) -> bool {
     if let Some(current_state) = current_state {
-        if !games.contains(&current_state.game) {
-            return false;
-        }
         if let Some(old_state) = old_state {
             if current_state.server != old_state.server {
                 return true;
@@ -42,6 +35,22 @@ fn is_different_states(
         }
     }
     false
+}
+fn is_different_states(
+    old_state: Option<&TargetState>,
+    current_state: Option<&TargetState>,
+) -> bool {
+    if let Some(current_state) = current_state {
+        if let Some(old_state) = old_state {
+            if current_state.server == old_state.server {
+                return false;
+            }
+        }
+    }
+    if current_state.is_none() && old_state.is_none() {
+        return false;
+    }
+    true
 }
 
 const fn should_retry_send(err: &SerenityError) -> bool {
@@ -187,12 +196,22 @@ pub async fn update_loop(cache: Arc<Cache>, http: Arc<Http>) {
                                     channel_states.entry(channel_id).or_default();
                                 channel_state.retain(|target, _| targets.contains(target));
                                 let mut ping = false;
+                                let mut should_send_output = false;
                                 for target in targets.iter() {
                                     let current_state_ref = target_states().get(target.as_ref());
-                                    let current_state = current_state_ref.as_deref();
+                                    let mut current_state = current_state_ref.as_deref();
+                                    if let Some(state) = current_state {
+                                        if !games.contains(&state.game) {
+                                            current_state = None;
+                                        }
+                                    }
                                     let old_state = channel_state.get(target.as_ref());
+                                    if !should_send_output {
+                                        should_send_output =
+                                            is_different_states(old_state, current_state);
+                                    }
                                     if !ping {
-                                        ping = is_different_states(old_state, current_state, games);
+                                        ping = is_ping_states(old_state, current_state);
                                     }
                                     match current_state {
                                         Some(state) if games.contains(&state.game) => {
@@ -206,27 +225,29 @@ pub async fn update_loop(cache: Arc<Cache>, http: Arc<Http>) {
                                     };
                                 }
                                 drop(channel);
-                                let channel_state = {
-                                    let copied = channel_state.value().clone();
-                                    drop(channel_state);
-                                    copied
-                                };
-                                let (output, edit_output) = generate_tracking_output(
-                                    &channel_state,
-                                    channel_id,
-                                    if ping { notified_role } else { None },
-                                )
-                                .await;
-                                send_output(
-                                    &cache,
-                                    http.as_ref(),
-                                    output,
-                                    edit_output,
-                                    message_id,
-                                    channel_id,
-                                    guild_id,
-                                )
-                                .await;
+                                if should_send_output {
+                                    let channel_state = {
+                                        let copied = channel_state.value().clone();
+                                        drop(channel_state);
+                                        copied
+                                    };
+                                    let (output, edit_output) = generate_tracking_output(
+                                        &channel_state,
+                                        channel_id,
+                                        if ping { notified_role } else { None },
+                                    )
+                                    .await;
+                                    send_output(
+                                        &cache,
+                                        http.as_ref(),
+                                        output,
+                                        edit_output,
+                                        message_id,
+                                        channel_id,
+                                        guild_id,
+                                    )
+                                    .await;
+                                }
                             }
                         }
                     }
