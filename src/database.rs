@@ -174,12 +174,10 @@ impl CachedChannel {
             inner: Arc::new(InnerCachedChannel::new(channel)),
         }
     }
-    #[allow(dead_code)]
     pub async fn delete_channel(self) -> Result<(), ChannelDeleteError> {
         db().await.delete_channel(self.inner).await
     }
     delegate! {
-        #[allow(dead_code)]
         to self.inner {
             pub fn id(&self) -> ChannelId;
             pub fn message(&self) -> Option<MessageId>;
@@ -462,7 +460,6 @@ impl Database {
             deleting: DashSet::with_hasher(RandomState::new()),
         })
     }
-    #[allow(dead_code)]
     pub async fn initialize(&self, channel: &GuildChannel) -> Result<(), ChannelInitializeError> {
         let channel_count = self.get_guild_channel_count(channel.guild_id).await?;
         if channel_count >= CHANNEL_LIMIT {
@@ -494,7 +491,6 @@ impl Database {
             .await;
         Ok(())
     }
-    #[allow(dead_code)]
     pub async fn get_guild_channels(
         &self,
         guild: GuildId,
