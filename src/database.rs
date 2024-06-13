@@ -23,7 +23,6 @@ use sea_query::OnConflict;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::OnceCell;
-use tracing::info;
 
 static DATABASE: OnceCell<Database> = OnceCell::const_new();
 
@@ -710,10 +709,8 @@ impl Database {
         let channel_id = channel.id();
         let guild_id = channel.guild();
         self.deleting.insert(channel_id);
-        info!("refcount: {}", Arc::strong_count(&channel));
         self.channel_cache.invalidate(&channel_id).await;
         self.channel_cache.run_pending_tasks().await;
-        info!("refcount: {}", Arc::strong_count(&channel));
         let res = {
             match Arc::into_inner(channel) {
                 None => Err(ChannelDeleteError::OperationPending),
