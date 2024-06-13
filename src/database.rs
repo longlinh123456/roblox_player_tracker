@@ -755,9 +755,19 @@ impl Database {
             }))
     }
     pub async fn get_game_count(&self) -> Result<u64, DbErr> {
-        Game::find().count(&self.db).await
+        Game::find()
+            .select_only()
+            .column(game::Column::Id)
+            .distinct()
+            .count(&self.db)
+            .await
     }
     pub async fn get_target_count(&self) -> Result<u64, DbErr> {
-        Target::find().count(&self.db).await
+        Target::find()
+            .select_only()
+            .column(target::Column::Id)
+            .distinct()
+            .count(&self.db)
+            .await
     }
 }
