@@ -16,5 +16,5 @@ pub const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWeb
 pub const MIN_UPDATE_DELAY: Duration = Duration::from_secs(1);
 pub const MIN_TRACKING_DELAY: Duration = Duration::from_secs(1);
 pub const RETRY_DELAY: Duration = Duration::from_millis(100);
-pub const MAX_RETRY_ATTEMPTS: usize = 3;
+pub const MAX_RETRY_ATTEMPTS: usize = 5;
 pub const MAX_TRACKING_TASKS: usize = 5;
