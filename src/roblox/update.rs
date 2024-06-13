@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     commands::stats::get_stats,
-    constants::UPDATE_DELAY,
+    constants::MIN_UPDATE_DELAY,
     database::{db, CachedChannel},
     message_utils::{render_lines_edit_message, render_lines_message},
 };
@@ -21,8 +21,8 @@ use poise::serenity_prelude::{
     Mention, MessageId, RoleId,
 };
 use roblox_api::apis::Id;
-use std::{sync::Arc, time::Instant};
-use tokio::time;
+use std::sync::Arc;
+use tokio::time::{self, Instant};
 
 fn is_ping_states(old_state: Option<&TargetState>, current_state: Option<&TargetState>) -> bool {
     if let Some(current_state) = current_state {
@@ -190,7 +190,7 @@ pub async fn update_loop(cache: Arc<Cache>, http: Arc<Http>) {
                 }
             })
             .await;
-        time::sleep(UPDATE_DELAY).await;
+        time::sleep_until(start_time + MIN_UPDATE_DELAY).await;
         get_stats().add_update_cycle(start_time.elapsed());
     }
 }
