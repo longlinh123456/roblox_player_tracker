@@ -6,12 +6,12 @@ use super::{
 use crate::{
     commands::stats::get_stats,
     constants::UPDATE_DELAY,
-    database::db,
+    database::{db, CachedChannel},
     message_utils::{render_lines_edit_message, render_lines_message},
 };
 use ahash::{HashMap, HashSet, RandomState};
 use backon::Retryable;
-use dashmap::DashMap;
+use dashmap::{mapref::entry::Entry, DashMap, DashSet};
 use poise::serenity_prelude::{
     futures::{
         stream::{self, FuturesUnordered},
@@ -185,71 +185,7 @@ pub async fn update_loop(cache: Arc<Cache>, http: Arc<Http>) {
                         .retry(retry_strategy())
                         .await;
                     if let Ok(channel) = channel {
-                        let games = (|| channel.get_games()).retry(retry_strategy()).await;
-                        let targets = (|| channel.get_targets()).retry(retry_strategy()).await;
-                        let notified_role = channel.notified_role();
-                        let message_id = channel.message();
-                        let guild_id = channel.guild();
-                        if let Ok(games) = games {
-                            if let Ok(targets) = targets {
-                                let mut channel_state =
-                                    channel_states.entry(channel_id).or_default();
-                                channel_state.retain(|target, _| targets.contains(target));
-                                let mut ping = false;
-                                let mut should_send_output = false;
-                                for target in targets.iter() {
-                                    let current_state_ref = target_states().get(target.as_ref());
-                                    let mut current_state = current_state_ref.as_deref();
-                                    if let Some(state) = current_state {
-                                        if !games.contains(&state.game) {
-                                            current_state = None;
-                                        }
-                                    }
-                                    let old_state = channel_state.get(target.as_ref());
-                                    if !should_send_output {
-                                        should_send_output =
-                                            is_different_states(old_state, current_state);
-                                    }
-                                    if !ping {
-                                        ping = is_ping_states(old_state, current_state);
-                                    }
-                                    match current_state {
-                                        Some(state) if games.contains(&state.game) => {
-                                            channel_state.insert(*target, state.clone());
-                                            drop(current_state_ref);
-                                        }
-                                        _ => {
-                                            drop(current_state_ref);
-                                            channel_state.remove(target.as_ref());
-                                        }
-                                    };
-                                }
-                                drop(channel);
-                                if should_send_output {
-                                    let channel_state = {
-                                        let copied = channel_state.value().clone();
-                                        drop(channel_state);
-                                        copied
-                                    };
-                                    let (output, edit_output) = generate_tracking_output(
-                                        &channel_state,
-                                        channel_id,
-                                        if ping { notified_role } else { None },
-                                    )
-                                    .await;
-                                    send_output(
-                                        &cache,
-                                        http.as_ref(),
-                                        output,
-                                        edit_output,
-                                        message_id,
-                                        channel_id,
-                                        guild_id,
-                                    )
-                                    .await;
-                                }
-                            }
-                        }
+                        update_channel(channel, channel_states, channel_id, cache, http).await;
                     }
                 }
             })
@@ -257,4 +193,113 @@ pub async fn update_loop(cache: Arc<Cache>, http: Arc<Http>) {
         time::sleep(UPDATE_DELAY).await;
         get_stats().add_update_cycle(start_time.elapsed());
     }
+}
+
+#[allow(clippy::significant_drop_tightening)]
+async fn update_channel(
+    channel: CachedChannel,
+    channel_states: Arc<DashMap<ChannelId, HashMap<Id, TargetState>, RandomState>>,
+    channel_id: ChannelId,
+    cache: Arc<Cache>,
+    http: Arc<Http>,
+) {
+    let games = (|| channel.get_games()).retry(retry_strategy()).await;
+    let targets = (|| channel.get_targets()).retry(retry_strategy()).await;
+    let notified_role = channel.notified_role();
+    let message_id = channel.message();
+    let guild_id = channel.guild();
+    if let Ok(games) = games {
+        if let Ok(targets) = targets {
+            let mut ping = false;
+            let mut update_output = false;
+            let mut channel_state = {
+                let entry = channel_states.entry(channel_id);
+                if let Entry::Vacant(_) = entry {
+                    update_output = true;
+                }
+                entry.or_default()
+            };
+            cleanup_channel_state(&mut channel_state, targets, &mut update_output);
+            for target in targets.iter() {
+                process_target_state(
+                    *target,
+                    games,
+                    &mut channel_state,
+                    &mut update_output,
+                    &mut ping,
+                );
+            }
+            drop(channel);
+            if update_output {
+                let channel_state = {
+                    let copied = channel_state.value().clone();
+                    drop(channel_state);
+                    copied
+                };
+                let (output, edit_output) = generate_tracking_output(
+                    &channel_state,
+                    channel_id,
+                    if ping { notified_role } else { None },
+                )
+                .await;
+                send_output(
+                    &cache,
+                    http.as_ref(),
+                    output,
+                    edit_output,
+                    message_id,
+                    channel_id,
+                    guild_id,
+                )
+                .await;
+            }
+        }
+    }
+}
+
+fn process_target_state(
+    target: Id,
+    games: &DashSet<Id, RandomState>,
+    channel_state: &mut HashMap<Id, TargetState>,
+    update_output: &mut bool,
+    ping: &mut bool,
+) {
+    let current_state_ref = target_states().get(target.as_ref());
+    let mut current_state = current_state_ref.as_deref();
+    if let Some(state) = current_state {
+        if !games.contains(&state.game) {
+            current_state = None;
+        }
+    }
+    let old_state = channel_state.get(target.as_ref());
+    if !*update_output {
+        *update_output = is_different_states(old_state, current_state);
+    }
+    if !*ping {
+        *ping = is_ping_states(old_state, current_state);
+    }
+    match current_state {
+        Some(state) if games.contains(&state.game) => {
+            channel_state.insert(target, state.clone());
+            drop(current_state_ref);
+        }
+        _ => {
+            drop(current_state_ref);
+            channel_state.remove(target.as_ref());
+        }
+    };
+}
+
+fn cleanup_channel_state(
+    channel_state: &mut HashMap<Id, TargetState>,
+    targets: &DashSet<Id, RandomState>,
+    should_update_output: &mut bool,
+) {
+    channel_state.retain(|target, _| {
+        let contains = targets.contains(target);
+        if !contains {
+            *should_update_output = true;
+        }
+        contains
+    });
 }
