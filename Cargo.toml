@@ -29,7 +29,11 @@ tokio = { version = "1", features = [
 roblox_api = { git = "https://github.com/longlinh123456/roblox_api.git" }
 anyhow = { version = "1", features = ["backtrace"] }
 tracing = "0"
-tracing-subscriber = { version = "0", features = ["fmt"] }
+tracing-subscriber = { version = "0", features = [
+	"fmt",
+	"parking_lot",
+	"env-filter",
+] }
 moka = { version = "0", features = ["future"] }
 ahash = "0"
 dashmap = { version = "5", features = ["inline"] }

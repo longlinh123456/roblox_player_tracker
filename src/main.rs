@@ -28,7 +28,7 @@ use tracing::error;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt::init();
     let options = FrameworkOptions {
         commands: vec![
             channels::channels(),
