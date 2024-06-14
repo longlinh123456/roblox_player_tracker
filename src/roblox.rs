@@ -1,16 +1,14 @@
 use crate::constants::{
-    MAX_RETRY_ATTEMPTS, NAME_BATCHING_TIME, NAME_TIMEOUT, RETRY_DELAY, THUMBNAIL_BATCHING_TIME,
-    USER_AGENT,
+    MAX_RETRY_ATTEMPTS, NAME_BATCHING_TIME, NAME_TIMEOUT, THUMBNAIL_BATCHING_TIME, USER_AGENT,
 };
 use ahash::{HashMap, RandomState};
-use backon::{BackoffBuilder, ConstantBuilder};
+use backon::{BackoffBuilder, FibonacciBuilder};
 use batch_aint_one::{
     BatchError, Batcher as InnerBatcher, BatchingPolicy, Limits, OnFull, Processor,
 };
 use migration::async_trait::async_trait;
 use moka::future::Cache;
 use poise::serenity_prelude::futures::{future, TryFutureExt};
-use ratelimit::ratelimiter;
 use roblox_api::{
     apis::{
         self,
@@ -33,7 +31,6 @@ use std::{
 use thiserror::Error;
 use tokio::{sync::OnceCell, task, time};
 
-mod ratelimit;
 pub mod tracking;
 pub mod update;
 
@@ -48,22 +45,26 @@ type UsernameBatcher = InnerBatcher<(), Id, String, Infallible>;
 type ThumbnailBatcher =
     InnerBatcher<(), ThumbnailRequest, BatchThumbnailResult, Arc<apis::Error<JsonError>>>;
 
-static RETRY_STRATEGY: OnceLock<ConstantBuilder> = OnceLock::new();
+static RETRY_STRATEGY: OnceLock<FibonacciBuilder> = OnceLock::new();
 
-fn retry_strategy() -> &'static ConstantBuilder {
+fn retry_strategy() -> &'static FibonacciBuilder {
     RETRY_STRATEGY.get_or_init(|| {
-        ConstantBuilder::default()
-            .with_delay(RETRY_DELAY)
+        FibonacciBuilder::default()
+            .with_jitter()
+            .with_min_delay(Duration::from_millis(100))
+            .with_max_delay(Duration::from_millis(3000))
             .with_max_times(MAX_RETRY_ATTEMPTS)
     })
 }
 
-static THUMBNAIL_RETRY_STRATEGY: OnceLock<ConstantBuilder> = OnceLock::new();
+static THUMBNAIL_RETRY_STRATEGY: OnceLock<FibonacciBuilder> = OnceLock::new();
 
-fn thumbnail_retry_strategy() -> &'static ConstantBuilder {
+fn thumbnail_retry_strategy() -> &'static FibonacciBuilder {
     THUMBNAIL_RETRY_STRATEGY.get_or_init(|| {
-        ConstantBuilder::default()
-            .with_delay(RETRY_DELAY)
+        FibonacciBuilder::default()
+            .with_jitter()
+            .with_min_delay(Duration::from_millis(100))
+            .with_max_delay(Duration::from_millis(3000))
             .with_max_times(MAX_RETRY_ATTEMPTS + 1)
     })
 }
@@ -123,7 +124,6 @@ impl Processor<(), ThumbnailRequest, BatchThumbnailResult, Arc<apis::Error<JsonE
                 format: ThumbnailFormat::Png,
                 circular: false,
             });
-        ratelimiter().thumbnails.acquire_one().await;
         let mut res = Vec::with_capacity(ids_and_tokens.len());
         res.resize_with(ids_and_tokens.len(), || Ok(BatchThumbnail::default()));
         client()

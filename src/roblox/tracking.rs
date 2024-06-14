@@ -1,10 +1,10 @@
 use super::{
-    clear_thumbnail_cache, client, get_thumbnail_from_token, ratelimit::ratelimiter,
-    retry_strategy, thumbnail_retry_strategy, InfiniteRetry, ThumbnailError,
+    clear_thumbnail_cache, client, get_thumbnail_from_token, retry_strategy,
+    thumbnail_retry_strategy, InfiniteRetry, ThumbnailError,
 };
 use crate::{
     commands::stats::get_stats,
-    constants::{MAX_TRACKING_TASKS, MIN_TRACKING_DELAY},
+    constants::{MAX_TRACKING_TASKS, MIN_TRACKING_DELAY, MISSING_TARGET_TOLERANCE},
     database::db,
     roblox::get_thumbnail_from_user_id,
 };
@@ -24,14 +24,16 @@ use roblox_api::apis::{
     Error, Id, JsonError, Paginator, RequestLimit, SortOrder,
 };
 use sea_orm::prelude::Uuid;
-use std::sync::{Arc, OnceLock};
+use std::{
+    collections::hash_map::Entry,
+    sync::{Arc, OnceLock},
+};
 use tokio::time::{self, Instant};
 
 fn get_servers(game_id: Id) -> Paginator<'static, PublicServer, JsonError> {
     apis::paginate(
         move |cursor| async move {
             (|| async {
-                ratelimiter().servers.acquire_one().await;
                 client()
                     .get_public_servers_manual(
                         game_id,
@@ -94,6 +96,7 @@ struct ServerPlayer {
 fn target_states_cleanup(
     games_and_targets: &HashMap<Id, Vec<Id>>,
     found_targets: &DashSet<Id, RandomState>,
+    missing_targets: &mut HashMap<Id, usize>,
 ) {
     let mut all_targets: HashSet<Id> = HashSet::new();
     for targets in games_and_targets.values() {
@@ -101,7 +104,28 @@ fn target_states_cleanup(
             all_targets.insert(*target);
         }
     }
-    target_states().retain(|id, _| all_targets.contains(id) && found_targets.contains(id));
+    missing_targets
+        .retain(|target, _| !found_targets.contains(target) && all_targets.contains(target));
+    for target in &all_targets {
+        if !found_targets.contains(target) {
+            *missing_targets.entry(*target).or_default() += 1;
+        }
+    }
+    target_states().retain(|id, _| {
+        all_targets.contains(id) && {
+            match missing_targets.entry(*id) {
+                Entry::Vacant(_) => true,
+                Entry::Occupied(entry) => {
+                    if *entry.get() > MISSING_TARGET_TOLERANCE {
+                        entry.remove();
+                        false
+                    } else {
+                        true
+                    }
+                }
+            }
+        }
+    });
 }
 
 async fn get_target_thumbnails(
@@ -133,6 +157,7 @@ async fn get_target_thumbnails(
 }
 
 pub async fn tracking_loop() {
+    let mut missing_targets: HashMap<Id, usize> = HashMap::default();
     loop {
         let start_time = Instant::now();
         clear_thumbnail_cache().await;
@@ -185,7 +210,7 @@ pub async fn tracking_loop() {
             }
         })
         .await;
-        target_states_cleanup(&games_and_targets, &found_targets);
+        target_states_cleanup(&games_and_targets, &found_targets, &mut missing_targets);
         time::sleep_until(start_time + MIN_TRACKING_DELAY).await;
         get_stats().add_tracking_cycle(start_time.elapsed());
     }
