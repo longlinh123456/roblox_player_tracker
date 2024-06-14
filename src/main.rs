@@ -12,6 +12,7 @@ mod constants;
 mod database;
 mod error_handler;
 mod message_utils;
+mod retry_strategies;
 mod roblox;
 
 use anyhow::{Context, Result};

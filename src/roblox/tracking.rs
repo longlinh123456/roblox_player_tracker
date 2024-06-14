@@ -1,11 +1,11 @@
 use super::{
-    clear_thumbnail_cache, client, get_thumbnail_from_token, retry_strategy,
-    thumbnail_retry_strategy, InfiniteRetry, ThumbnailError,
+    clear_thumbnail_cache, client, get_thumbnail_from_token, InfiniteRetry, ThumbnailError,
 };
 use crate::{
     commands::stats::get_stats,
     constants::{MAX_TRACKING_TASKS, MIN_TRACKING_DELAY, MISSING_TARGET_TOLERANCE},
     database::db,
+    retry_strategies::{roblox_retry_strategy, thumbnail_retry_strategy},
     roblox::get_thumbnail_from_user_id,
 };
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt, RandomState};
@@ -45,7 +45,7 @@ fn get_servers(game_id: Id) -> Paginator<'static, PublicServer, JsonError> {
                     )
                     .await
             })
-            .retry(retry_strategy())
+            .retry(roblox_retry_strategy())
             .when(api_error_retryable)
             .await
         },

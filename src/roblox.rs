@@ -1,8 +1,6 @@
-use crate::constants::{
-    MAX_RETRY_ATTEMPTS, NAME_BATCHING_TIME, NAME_TIMEOUT, THUMBNAIL_BATCHING_TIME, USER_AGENT,
-};
+use crate::constants::{NAME_BATCHING_TIME, NAME_TIMEOUT, THUMBNAIL_BATCHING_TIME, USER_AGENT};
 use ahash::{HashMap, RandomState};
-use backon::{BackoffBuilder, FibonacciBuilder};
+use backon::BackoffBuilder;
 use batch_aint_one::{
     BatchError, Batcher as InnerBatcher, BatchingPolicy, Limits, OnFull, Processor,
 };
@@ -44,31 +42,6 @@ struct RobloxCache {
 type UsernameBatcher = InnerBatcher<(), Id, String, Infallible>;
 type ThumbnailBatcher =
     InnerBatcher<(), ThumbnailRequest, BatchThumbnailResult, Arc<apis::Error<JsonError>>>;
-
-static RETRY_STRATEGY: OnceLock<FibonacciBuilder> = OnceLock::new();
-
-fn retry_strategy() -> &'static FibonacciBuilder {
-    RETRY_STRATEGY.get_or_init(|| {
-        FibonacciBuilder::default()
-            .with_jitter()
-            .with_min_delay(Duration::from_millis(100))
-            .with_max_delay(Duration::from_millis(3000))
-            .with_max_times(MAX_RETRY_ATTEMPTS)
-    })
-}
-
-static THUMBNAIL_RETRY_STRATEGY: OnceLock<FibonacciBuilder> = OnceLock::new();
-
-fn thumbnail_retry_strategy() -> &'static FibonacciBuilder {
-    THUMBNAIL_RETRY_STRATEGY.get_or_init(|| {
-        FibonacciBuilder::default()
-            .with_jitter()
-            .with_min_delay(Duration::from_millis(100))
-            .with_max_delay(Duration::from_millis(3000))
-            .with_max_times(MAX_RETRY_ATTEMPTS + 1)
-    })
-}
-
 #[derive(Debug, Default, Clone)]
 struct InfiniteRetry;
 

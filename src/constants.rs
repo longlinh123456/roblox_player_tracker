@@ -15,6 +15,5 @@ pub const THUMBNAIL_BATCHING_TIME: Duration = Duration::from_millis(100);
 pub const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 pub const MIN_UPDATE_DELAY: Duration = Duration::from_secs(1);
 pub const MIN_TRACKING_DELAY: Duration = Duration::from_secs(1);
-pub const MAX_RETRY_ATTEMPTS: usize = 10;
 pub const MAX_TRACKING_TASKS: usize = 3;
 pub const MISSING_TARGET_TOLERANCE: usize = 3;

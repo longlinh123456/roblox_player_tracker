@@ -204,7 +204,7 @@ impl CachedChannel {
             pub async fn clear_games(&self) -> Result<usize, GameDeleteError>;
             pub async fn game_count(&self) -> Result<usize, DbErr>;
             pub async fn target_count(&self) -> Result<usize, DbErr>;
-            pub async fn set_message(&self, message: MessageId) -> Result<(), DbErr>;
+            pub async fn set_message(&self, message: Option<MessageId>) -> Result<(), DbErr>;
             pub async fn set_notified_role(&self, role: Option<RoleId>) -> Result<(), DbErr>;
         }
     }
@@ -371,9 +371,9 @@ impl InnerCachedChannel {
     async fn target_count(&self) -> Result<usize, DbErr> {
         Ok(self.get_targets().await?.len())
     }
-    async fn set_message(&self, message: MessageId) -> Result<(), DbErr> {
+    async fn set_message(&self, message: Option<MessageId>) -> Result<(), DbErr> {
         db().await.set_message(self.channel, message).await?;
-        self.message.store(Some(Arc::new(message)));
+        self.message.store(message.map(Arc::new));
         Ok(())
     }
     async fn set_notified_role(&self, role: Option<RoleId>) -> Result<(), DbErr> {
@@ -691,11 +691,15 @@ impl Database {
         .await?;
         Ok(())
     }
-    async fn set_message(&self, channel: ChannelId, message: MessageId) -> Result<(), DbErr> {
+    async fn set_message(
+        &self,
+        channel: ChannelId,
+        message: Option<MessageId>,
+    ) -> Result<(), DbErr> {
         Channel::update(channel::ActiveModel {
             id: Set(channel.get() as i64),
             guild: NotSet,
-            message: Set(Some(message.get() as i64)),
+            message: Set(message.map(|message| message.get() as i64)),
             notified_role: NotSet,
         })
         .exec(&self.db)

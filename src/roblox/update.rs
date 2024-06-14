@@ -1,5 +1,5 @@
 use super::{
-    get_game_name, get_username, retry_strategy,
+    get_game_name, get_username,
     tracking::{target_states, TargetState},
     InfiniteRetry,
 };
@@ -8,6 +8,7 @@ use crate::{
     constants::MIN_UPDATE_DELAY,
     database::{db, CachedChannel},
     message_utils::{render_lines_edit_message, render_lines_message},
+    retry_strategies::discord_retry_strategy,
 };
 use ahash::{HashMap, HashSet, RandomState};
 use backon::Retryable;
@@ -56,6 +57,14 @@ fn is_different_states(
 const fn should_retry_send(err: &SerenityError) -> bool {
     if let SerenityError::Http(HttpError::UnsuccessfulRequest(err)) = err {
         if let 10003 | 50001 = err.error.code {
+            return false;
+        }
+    }
+    true
+}
+const fn should_retry_delete(err: &SerenityError) -> bool {
+    if let SerenityError::Http(HttpError::UnsuccessfulRequest(err)) = err {
+        if let 10003 | 50001 | 10008 = err.error.code {
             return false;
         }
     }
@@ -131,7 +140,7 @@ async fn send_output(
     let mut should_delete = false;
     if let Some(message_id) = message_id {
         let edit_res = (|| http.edit_message(channel_id, message_id, &edit_output, Vec::new()))
-            .retry(retry_strategy())
+            .retry(discord_retry_strategy())
             .when(should_retry_edit)
             .await;
         if let Err(err) = edit_res {
@@ -141,23 +150,23 @@ async fn send_output(
     }
     if should_delete {
         let channel = (|| async { db().await.get_channel(channel_id).await })
-            .retry(retry_strategy())
+            .retry(discord_retry_strategy())
             .await;
         if let Ok(channel) = channel {
             let _ = channel.delete_channel().await;
         }
     } else if should_send || message_id.is_none() {
         let send_res = (|| channel_id.send_message((cache, http), output.clone()))
-            .retry(retry_strategy())
+            .retry(discord_retry_strategy())
             .when(should_retry_send)
             .await;
         if let Ok(send_res) = send_res {
             let channel = (|| async { db().await.get_channel(channel_id).await })
-                .retry(retry_strategy())
+                .retry(discord_retry_strategy())
                 .await;
             if let Ok(channel) = channel {
-                let _ = (|| channel.set_message(send_res.id))
-                    .retry(retry_strategy())
+                let _ = (|| channel.set_message(Some(send_res.id)))
+                    .retry(discord_retry_strategy())
                     .await;
             }
         }
@@ -182,7 +191,7 @@ pub async fn update_loop(cache: Arc<Cache>, http: Arc<Http>) {
                 let http = http.clone();
                 async move {
                     let channel = (|| async { db().await.get_channel(channel_id).await })
-                        .retry(retry_strategy())
+                        .retry(discord_retry_strategy())
                         .await;
                     if let Ok(channel) = channel {
                         update_channel(channel, channel_states, channel_id, cache, http).await;
@@ -203,10 +212,14 @@ async fn update_channel(
     cache: Arc<Cache>,
     http: Arc<Http>,
 ) {
-    let games = (|| channel.get_games()).retry(retry_strategy()).await;
-    let targets = (|| channel.get_targets()).retry(retry_strategy()).await;
+    let games = (|| channel.get_games())
+        .retry(discord_retry_strategy())
+        .await;
+    let targets = (|| channel.get_targets())
+        .retry(discord_retry_strategy())
+        .await;
     let notified_role = channel.notified_role();
-    let message_id = channel.message();
+    let mut message_id = channel.message();
     let guild_id = channel.guild();
     if let Ok(games) = games {
         if let Ok(targets) = targets {
@@ -229,8 +242,17 @@ async fn update_channel(
                     &mut ping,
                 );
             }
-            drop(channel);
             if update_output {
+                if let Some(id) = message_id {
+                    if ping {
+                        let _ = (|| channel_id.delete_message((&cache, http.as_ref()), id))
+                            .retry(discord_retry_strategy())
+                            .when(should_retry_delete)
+                            .await;
+                        message_id = None;
+                    }
+                };
+                drop(channel);
                 let channel_state = {
                     let copied = channel_state.value().clone();
                     drop(channel_state);
