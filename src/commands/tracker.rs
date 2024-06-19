@@ -54,9 +54,7 @@ pub async fn init(ctx: Context<'_>) -> CommandResult {
 pub async fn info(ctx: Context<'_>) -> CommandResult {
     let channel = get_channel(ctx.channel_id()).await?;
     let res = info_embed(format!(
-        "Game count: {}/{GAME_LIMIT}
-        Target count: {}/{TARGET_LIMIT}
-        Notified role: {}",
+        "Game count: {}/{GAME_LIMIT}\nTarget count: {}/{TARGET_LIMIT}\nNotified role: {}",
         channel.game_count().await?,
         channel.target_count().await?,
         channel.notified_role().map_or_else(

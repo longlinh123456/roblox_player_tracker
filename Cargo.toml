@@ -36,7 +36,7 @@ tracing-subscriber = { version = "0", features = [
 ] }
 moka = { version = "0", features = ["future"] }
 ahash = "0"
-dashmap = { version = "5", features = ["inline"] }
+dashmap = { version = "6", features = ["inline"] }
 delegate = "0"
 thiserror = "1"
 batch-aint-one = "0"
