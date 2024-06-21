@@ -740,20 +740,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dashmap"
-version = "6.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23fadfd577acfd4485fb258011b0fd080882ea83359b6fd41304900b94ccf487"
-dependencies = [
- "cfg-if",
- "crossbeam-utils",
- "hashbrown 0.14.5",
- "lock_api",
- "once_cell",
- "parking_lot_core",
-]
-
-[[package]]
 name = "data-encoding"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1671,7 +1657,7 @@ checksum = "c325dfab65f261f386debee8b0969da215b3fa0037e74c8a1234db7ba986d803"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
- "dashmap 5.5.3",
+ "dashmap",
  "skeptic",
  "smallvec",
  "tagptr",
@@ -2478,7 +2464,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "chrono",
- "dashmap 5.5.3",
+ "dashmap",
  "deranged",
  "derive_is_enum_variant",
  "futures",
@@ -2502,7 +2488,7 @@ dependencies = [
  "arc-swap",
  "backon",
  "batch-aint-one",
- "dashmap 6.0.0",
+ "dashmap",
  "delegate",
  "entities",
  "leaky-bucket",
@@ -2999,7 +2985,7 @@ dependencies = [
  "bitflags 2.5.0",
  "bytes",
  "chrono",
- "dashmap 5.5.3",
+ "dashmap",
  "flate2",
  "futures",
  "fxhash",
@@ -3891,7 +3877,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb704842c709bc76f63e99e704cb208beeccca2abbabd0d9aec02e48ca1cee0f"
 dependencies = [
  "chrono",
- "dashmap 5.5.3",
+ "dashmap",
  "hashbrown 0.14.5",
  "mini-moka",
  "parking_lot",
