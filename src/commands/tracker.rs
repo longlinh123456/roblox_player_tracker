@@ -35,7 +35,7 @@ pub async fn tracker(_: Context<'_>) -> CommandResult {
 /// Initialize the tracker in this channel
 pub async fn init(ctx: Context<'_>) -> CommandResult {
     db().await
-        .initialize(&ctx.guild_channel().await.unwrap())
+        .initialize(ctx.channel_id(), ctx.guild_id().unwrap())
         .await?;
     ctx.send(success_message(
         "Successfully initialized tracker in this channel",

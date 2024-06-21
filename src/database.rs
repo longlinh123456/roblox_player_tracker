@@ -12,7 +12,7 @@ use delegate::delegate;
 use entities::{channel, game, prelude::*, target};
 use migration::{Migrator, MigratorTrait};
 use moka::future::Cache;
-use poise::serenity_prelude::{ChannelId, GuildChannel, GuildId, MessageId, RoleId};
+use poise::serenity_prelude::{ChannelId, GuildId, MessageId, RoleId};
 use roblox_api::apis::Id;
 use sea_orm::{
     prelude::*,
@@ -459,30 +459,34 @@ impl Database {
             deleting: DashSet::with_hasher(RandomState::new()),
         })
     }
-    pub async fn initialize(&self, channel: &GuildChannel) -> Result<(), ChannelInitializeError> {
-        let channel_count = self.get_guild_channel_count(channel.guild_id).await?;
+    pub async fn initialize(
+        &self,
+        channel: ChannelId,
+        guild: GuildId,
+    ) -> Result<(), ChannelInitializeError> {
+        let channel_count = self.get_guild_channel_count(guild).await?;
         if channel_count >= CHANNEL_LIMIT {
             return Err(ChannelInitializeError::LimitExceeded(channel_count + 1));
         }
         Channel::insert(channel::ActiveModel {
-            id: Set(channel.id.get() as i64),
-            guild: Set(channel.guild_id.get() as i64),
+            id: Set(channel.get() as i64),
+            guild: Set(guild.get() as i64),
             message: NotSet,
             notified_role: NotSet,
         })
         .on_conflict(OnConflict::new().do_nothing().to_owned())
         .exec(&self.db)
         .await?;
-        let guild_cache = self.guild_cache.get(&channel.guild_id).await;
+        let guild_cache = self.guild_cache.get(&guild).await;
         if let Some(cache) = guild_cache {
-            cache.insert(channel.id);
+            cache.insert(channel);
         }
         self.channel_cache
             .insert(
-                channel.id,
+                channel,
                 CachedChannel::new(&QueriedChannel {
-                    channel: channel.id,
-                    guild: channel.guild_id,
+                    channel,
+                    guild,
                     message: None,
                     notified_role: None,
                 }),
