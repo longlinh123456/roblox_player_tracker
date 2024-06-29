@@ -243,6 +243,11 @@ async fn update_channel(
                 );
             }
             if update_output {
+                let channel_state = {
+                    let copied = channel_state.value().clone();
+                    drop(channel_state);
+                    copied
+                };
                 if let Some(id) = message_id {
                     if ping {
                         let _ = (|| channel_id.delete_message((&cache, http.as_ref()), id))
@@ -253,11 +258,6 @@ async fn update_channel(
                     }
                 };
                 drop(channel);
-                let channel_state = {
-                    let copied = channel_state.value().clone();
-                    drop(channel_state);
-                    copied
-                };
                 let (output, edit_output) = generate_tracking_output(
                     &channel_state,
                     channel_id,
