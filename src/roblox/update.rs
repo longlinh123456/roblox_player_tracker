@@ -243,6 +243,7 @@ async fn update_channel(
                 );
             }
             if update_output {
+                drop(channel);
                 let channel_state = {
                     let copied = channel_state.value().clone();
                     drop(channel_state);
@@ -257,7 +258,6 @@ async fn update_channel(
                         message_id = None;
                     }
                 };
-                drop(channel);
                 let (output, edit_output) = generate_tracking_output(
                     &channel_state,
                     channel_id,
